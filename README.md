@@ -29,7 +29,7 @@ This API replaces MSW (Mock Service Worker) mocks with a real backend service. I
 uv sync
 
 # Run the development server
-uv run uvicorn src.api:app --reload
+uv run uvicorn api:app --reload
 ```
 
 The API will be available at `http://localhost:8000`
