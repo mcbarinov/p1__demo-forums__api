@@ -1,8 +1,9 @@
 import math
+import os
 import uuid
 from datetime import UTC, datetime
 
-from fastapi import APIRouter, HTTPException, status
+from fastapi import APIRouter, HTTPException, Response, status
 
 from .auth import CurrentUser
 from .data import (
@@ -29,9 +30,13 @@ from .models import (
 
 router = APIRouter()
 
+# Secure flag for cookies: True in production, False in development
+# In production, reverse proxy (Caddy/Nginx) terminates SSL
+SECURE_COOKIES = os.getenv("ENVIRONMENT", "development") == "production"
+
 
 @router.post("/api/auth/login", status_code=status.HTTP_200_OK)
-def login(credentials: LoginRequest) -> LoginResponse:
+def login(credentials: LoginRequest, response: Response) -> LoginResponse:
     """Login with username and password"""
     user = next(
         (u for u in mock_users if u.username == credentials.username and u.password == credentials.password),
@@ -46,11 +51,23 @@ def login(credentials: LoginRequest) -> LoginResponse:
     session_id = str(uuid.uuid4())
     sessions[session_id] = User(id=user.id, username=user.username, role=user.role)
 
+    # Set cookie for browser clients
+    response.set_cookie(
+        key="session_id",
+        value=session_id,
+        httponly=True,
+        secure=SECURE_COOKIES,
+        samesite="lax",
+        path="/",
+        max_age=604800,  # 7 days
+    )
+
+    # Return token for API clients
     return LoginResponse(authToken=session_id)
 
 
 @router.post("/api/auth/logout", status_code=status.HTTP_200_OK)
-def logout(current_user: CurrentUser) -> MessageResponse:
+def logout(current_user: CurrentUser, response: Response) -> MessageResponse:
     """Logout and invalidate session"""
     token_to_remove = None
     for token, user in sessions.items():
@@ -60,6 +77,8 @@ def logout(current_user: CurrentUser) -> MessageResponse:
 
     if token_to_remove:
         del sessions[token_to_remove]
+
+    response.delete_cookie(key="session_id", path="/", secure=SECURE_COOKIES, samesite="lax")
 
     return MessageResponse(message="Logged out successfully")
 

@@ -7,16 +7,21 @@ from .models import User
 
 
 def validate_session(request: Request) -> User | None:
-    """Validate session from Authorization header"""
+    """Validate session from Bearer token (priority) or HttpOnly cookie (fallback)"""
+    # Priority 1: Check Authorization header for Bearer token
     auth_header = request.headers.get("authorization")
-    if not auth_header:
-        return None
+    if auth_header and auth_header.startswith("Bearer "):
+        token = auth_header[7:]  # Strip "Bearer " prefix
+        user = sessions.get(token)
+        if user:
+            return user
 
-    if not auth_header.startswith("Bearer "):
-        return None
+    # Priority 2: Fall back to cookie-based session
+    session_id = request.cookies.get("session_id")
+    if session_id:
+        return sessions.get(session_id)
 
-    token = auth_header[7:]
-    return sessions.get(token)
+    return None
 
 
 def get_current_user(request: Request) -> User:
