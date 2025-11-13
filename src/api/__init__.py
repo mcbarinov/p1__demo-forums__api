@@ -1,7 +1,15 @@
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
-from .routes import router
+from .openapi import set_custom_openapi
+from .routes import (
+    auth_router,
+    comments_router,
+    forums_router,
+    posts_router,
+    profile_router,
+    users_router,
+)
 
 app = FastAPI(
     title="Demo Forums API",
@@ -21,7 +29,16 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-app.include_router(router)
+# Include routers with /api prefix
+app.include_router(auth_router, prefix="/api")
+app.include_router(profile_router, prefix="/api")
+app.include_router(forums_router, prefix="/api")
+app.include_router(posts_router, prefix="/api")
+app.include_router(comments_router, prefix="/api")
+app.include_router(users_router, prefix="/api")
+
+# Set custom OpenAPI schema
+set_custom_openapi(app)
 
 
 @app.get("/")
